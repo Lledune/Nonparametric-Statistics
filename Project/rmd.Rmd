@@ -70,27 +70,63 @@ To get smoother result, we can use a kernel estimator, it is going to estimate t
 
 Let's apply this to our data. 
 First we build the Kernel function and the density estimation function. 
+We are going to use Epanechnikov's second order kernel and gaussian kernel and compare them : 
+<center>$K_{epach}(u) = 0,75 * (1 - u^2) * (\lvert u \rvert <= 1)$</center>
+(Gaussian kernel is simply the gaussian density formula).
+
+We also need to find the optimal bandwith h, there is multiple methods for that but for now we are going to use the rule of thumb. 
+
 
 ```{r}
-K = function(u){ 0.75 * (1 - u^2) * (abs(u) <= 1) } #Epanechnikov kernel
+Kepach = function(u){ 0.75 * (1 - u^2) * (abs(u) <= 1) } #Epanechnikov kernel
+Kgauss <- function(u) dnorm(u)  #Gaussian kernel  
+
+
+rot <- function(X, K) {#Optimal h
+    RK <- integrate(function(u) K(u)^2, -Inf, Inf)$value ## integrated square kernel
+    mu2 <- integrate(function(u) u^2 * K(u), -Inf, Inf)$value ## variance kernel 
+    R <- quantile(X, 0.75) - quantile(X, 0.25) ## interquartile range
+    sig <- min(sd(X), R/1.349)
+    return(((8 * sqrt(pi) * RK)/(3 * mu2^2))^0.2 * sig * length(X)^(-0.2))
+}
+
+hOptEpach = rot(X, Kepach)
+hOptGauss = rot(X, Kgauss)
+
 DensEst = function(x, X, h, K) mean(K((x - X)/h))/h #Density calculation 
-h=0.75
 
 ```
-rajouter ici le choix optimal de h
-Then we can choose our bandwith h. 
-```{r}
-
-```
+<center>$hopt_{epach} = 0,55$
+$hopt_{gauss} = 0,25$</center>
 
 Now we apply the density estimator function to some x points so we can plot it. 
 ```{r}
-densK = sapply(Xcdf, function(Xcdf) DensEst(Xcdf, X, h, K))
-plot(Xcdf, densK, main = "Density estimation (Epanechnikov)")
+densKEpach = sapply(Xcdf, function(Xcdf) DensEst(Xcdf, X, hOptEpach, Kepach))
+densKGauss = sapply(Xcdf, function(Xcdf) DensEst(Xcdf, X, hOptGauss, Kgauss))
+par(mfrow = c(1,2))
+plot(Xcdf, densKEpach, main = "Density estimation (Epanechnikov)", type = 'l')
+plot(Xcdf, densKGauss, main = "Density estimation (Gauss)", type = 'l')
 
 ```
 And we have a function quite similar to the real exponential value (obviously). 
 
 This estimation was done using Epanechnikov's Kernel, which is the most efficient (even if the difference of efficiency between commonly used kernels is very small). 
+
+##Higher order kernel : fourth order 
+
+We will now perform the same density estimation, but using a second order kernel. Those are often called 'bias reduction kernels'. 
+
+Fourth order Epanechnikov kernel : 
+
+<center>$K = 15/8 * (1 - 7/3 * u^2) * K(u)$</center>
+
+```{r}
+Kepachfourth = function(u){ 15/8 * (1 - 7/3 * u^2) * Kepach(u) } #Epanechnikov kernel 4th order
+h=0.95
+
+densK4 = sapply(Xcdf, function(Xcdf) DensEst(Xcdf, X, h, Kepachfourth))
+plot(Xcdf, densK4, main = "Density estimation (Epanechnikov)", type = 'l')
+
+```
 
 
