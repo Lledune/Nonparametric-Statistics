@@ -118,15 +118,90 @@ We will now perform the same density estimation, but using a second order kernel
 
 Fourth order Epanechnikov kernel : 
 
-<center>$K = 15/8 * (1 - 7/3 * u^2) * K(u)$</center>
+<center>$K_{epach4th} = 15/8 * (1 - 7/3 * u^2) * K(u)$</center>
 
-```{r}
-Kepachfourth = function(u){ 15/8 * (1 - 7/3 * u^2) * Kepach(u) } #Epanechnikov kernel 4th order
-h=0.95
+Fourth order Gaussian kernel :
 
-densK4 = sapply(Xcdf, function(Xcdf) DensEst(Xcdf, X, h, Kepachfourth))
-plot(Xcdf, densK4, main = "Density estimation (Epanechnikov)", type = 'l')
+<center>$K_{gauss4th} = 1/2 * (3 - u^2) * K_{gauss}(u)$</center>
+
+One important thing to note with higher order order kernels is that they can be negative for some points. 
+Example : 
+```{r, echo = FALSE}
+u <- seq(-2,2,len=100)
+mu2 <- integrate(function(u) u^2*Kepach(u), -Inf, Inf)$value
+mu4 <- integrate(function(u) u^4*Kepach(u), -Inf, Inf)$value
+Kepan4 <- function(u) (mu4-mu2*u^2)*Kepach(u)/(mu4-mu2^2) #Epanechnikov kernel of order 4
+plot(u, sapply(u, function(u) Kepan4(u)), type="l", ylab="", main = "Epanechnikov 4th order kernel")
 
 ```
 
+
+```{r}
+# Higher order kernel construction
+prDensEstd <- function(x,X,h,K,k) mean(K((x-X)/h))/(h^(k+1))
+
+
+mu2 <- integrate(function(u) u^2*Kepach(u), -Inf, Inf)$value
+mu4 <- integrate(function(u) u^4*Kepach(u), -Inf, Inf)$value
+Kepach4 <- function(u) (mu4-mu2*u^2)*Kepach(u)/(mu4-mu2^2) #Epanechnikov kernel of order 4
+
+mug2 <- integrate(function(u) u^2*Kgauss(u), -Inf, Inf)$value
+mug4 <- integrate(function(u) u^4*Kgauss(u), -Inf, Inf)$value
+Kgauss4 <- function(u) (mug4-mug2*u^2)*Kgauss(u)/(mug4-mug2^2) #gaussian kernel of order 4
+
+
+hgauss4 = 0.25
+hepach4 = 0.55
+par(mfrow = c(1,2))
+densKEpach4 = sapply(Xcdf, function(Xcdf) prDensEstd(Xcdf, X, hepach4, Kepach4,0))
+densKGauss4 = sapply(Xcdf, function(Xcdf) prDensEstd(Xcdf, X, hgauss4, Kgauss4,0))
+plot(Xcdf, densKEpach4, main = "Density estimation (Epanechnikov) 4th order", type = 'l')
+plot(Xcdf, densKGauss4, main = "Density estimation (Gaussian) 4th order", type = 'l')
+
+```
+
+##Monte carlo study on the MISE 
+
+We are now going to perform a monte carlo study on our different estimators to see how is affected the MISE by sample size changes. 
+
+The mean integrated squared error is calculated as :
+
+<center>$\int E((f_p(x) - f(x))^2)$</center> 
+
+
+```{r}
+#We will do the experience with gaussian kernel. 
+ Kn = 1000 #replications
+
+
+ K = Kgauss #Gaussian kernel 
+ fx = function(x){exp(-x)^2}#density from exponential (squared for formula)
+ #The second derivative of exp(-x) is exp(-x) !!! (f''(x))
+ 
+MISE = function(K, h, n){
+  mu2 <- integrate(function(u) u^2*Kgauss(u), -Inf, Inf)$value
+  RK <- integrate(function(u) K(u)^2, -Inf, Inf)$value ## integrated square kernel
+  mise = (1/n*h)*RK + h^4/4 * integrate(fx, 0, Inf)$value * mu2^2 ##Formula to estimate MISE
+  return(mise)
+}
+
+
+montecarlo = function(Kn, n, Kernel, h){
+  MiseK = NULL #Init stock matrix
+  for(i in 1:Kn){
+    MiseK[i] = MISE(Kernel, h, n)
+  }
+  return(mean(MiseK))
+}
+
+Ns = c(10,25,50,100,250,500,1000) #Different numbers to try 
+MiseN = NULL #Init stock matrix 
+
+#Montecarlo for all n 
+for(i in 1:length(Ns)){
+  MiseN[i] = montecarlo(Kn, Ns[i], Kgauss, hOptGauss)
+}
+
+
+```
 
