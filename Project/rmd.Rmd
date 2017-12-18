@@ -168,7 +168,13 @@ The mean integrated squared error is calculated as :
 
 <center>$\int E((f_p(x) - f(x))^2)$</center> 
 
+But it can be approximated as : 
 
+$MISE ~= \frac{1}{nh} R(K) + \frac{h^4}{4} \int (f''(x))^2 dx \mu_2^2$
+
+This is the formula we will use to investigate the rate of convergence of our estimator. 
+
+To perform our montecarlo simulation, we will cal
 ```{r}
 #We will do the experience with gaussian kernel. 
  Kn = 1000 #replications
@@ -185,23 +191,63 @@ MISE = function(K, h, n){
   return(mise)
 }
 
-
-montecarlo = function(Kn, n, Kernel, h){
-  MiseK = NULL #Init stock matrix
-  for(i in 1:Kn){
-    MiseK[i] = MISE(Kernel, h, n)
-  }
-  return(mean(MiseK))
-}
-
-Ns = c(10,25,50,100,250,500,1000) #Different numbers to try 
+##############################################
+#Monte carlo simulation 
+##############################################
+Ns = seq(5,300,5) #Different numbers to try 
 MiseN = NULL #Init stock matrix 
 
-#Montecarlo for all n 
-for(i in 1:length(Ns)){
-  MiseN[i] = montecarlo(Kn, Ns[i], Kgauss, hOptGauss)
+montecarlo = function(Kn, n){#Montecarlo function
+X = rexp(n) #generation of exp law
+K = Kgauss #kernel
+h = 0.25 #optimal bandwidth
+intStock = NULL 
+montecarloStock = NULL
+for(j in 1:Kn){ #Replicate Kn times
+  for(i in 1:n){ #Get the integral for every generated number 
+    intStock[i] = integrate(function(x) (((1/n)*(K((x - X[i])/h))/h) - exp(-x))^2, 0, X[i])$value #f''(x) = exp(-x)
+  } 
+
+  montecarloStock[j] = mean(intStock) #Expectation
+}
+MISEresult = mean(montecarloStock) #Mean of all montecarlo replicates
+return(MISEresult)
 }
 
+for(i in 1:length(Ns)){ #Executing montecarlo for different n 
+  MiseN[i] = montecarlo(Kn = 200, n = Ns[i])
+}
+MiseN
+plot(Ns, MiseN)
+##
 
+##############################################
+#Monte carlo simulation 
+##############################################
+Ns = seq(5,300,5) #Different numbers to try 
+MiseN = NULL #Init stock matrix 
+
+montecarlo = function(Kn, n){#Montecarlo function
+X = rexp(n) #generation of exp law
+K = Kgauss #kernel
+h = 0.25 #optimal bandwidth
+intStock = NULL 
+montecarloStock = NULL
+for(j in 1:Kn){ #Replicate Kn times
+  for(i in 1:n){ #Get the integral for every generated number 
+    intStock[i] = integrate(function(x) (((1/n)*(K((x - X[i])/h))/h) - exp(-x))^2, 0, X[i])$value #f''(x) = exp(-x)
+  } 
+
+  montecarloStock[j] = mean(intStock) #Expectation
+}
+MISEresult = mean(montecarloStock) #Mean of all montecarlo replicates
+return(MISEresult)
+}
+
+for(i in 1:length(Ns)){ #Executing montecarlo for different n 
+  MiseN[i] = montecarlo(Kn = 200, n = Ns[i])
+}
+MiseN
+plot(Ns, MiseN)
 ```
 
